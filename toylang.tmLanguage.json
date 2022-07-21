@@ -1,0 +1,55 @@
+{
+	"name": "Toylang",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#comments"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "entity.name.type.rust",
+					"match": "\\b(i64|f64|String)\\b"
+				},
+				{
+					"name": "keyword.operator.math.rust",
+					"match": "=|\\+|-|\\*|\\/ "
+				},
+				{
+					"name": "entity.name.function.rust",
+					"match": "(?<= )[a-z]+([a-z]|[0-9])* \\\\|\\\\|\\:"
+				},
+				{
+					"name": "variable.other.rust",
+					"match": "[a-z]+([a-z]|[0-9])*"
+				},
+				{
+					"name": "constant.numeric.decimal.rust",
+					"match": "[0-9]|."
+				}
+			]
+		},
+		"strings": {
+			"name": "punctuation.definition.string.rust",
+			"begin": "\"",
+			"end": "\""
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.toylang",
+					"begin": "//",
+					"end": "$\n"
+				}
+			]
+		}
+	},
+	"scopeName": "source.toylang"
+}
