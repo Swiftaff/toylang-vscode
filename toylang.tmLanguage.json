@@ -20,15 +20,15 @@
 				},
 				{
 					"name": "keyword.operator.math.rust",
-					"match": "=|\\+|-|\\*|\\/ "
+					"match": "=|\\+|-|\\*|\\/ |<|>"
 				},
 				{
 					"name": "entity.name.function.rust",
-					"match": "(?<= )[a-z]+([a-z]|[0-9])* \\\\|\\\\|\\:"
+					"match": "(?<= )[a-z]+([a-z]|[0-9]|_)* \\\\|\\\\|\\:"
 				},
 				{
 					"name": "variable.other.rust",
-					"match": "[a-z]+([a-z]|[0-9])*"
+					"match": "[a-z]+([a-z]|[0-9]|_)*"
 				},
 				{
 					"name": "constant.numeric.decimal.rust",
