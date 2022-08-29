@@ -2,7 +2,7 @@
     "name": "toylang",
     "displayName": "Toylang",
     "description": "",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "icon": "icon.png",
     "repository": {
         "type": "git",
