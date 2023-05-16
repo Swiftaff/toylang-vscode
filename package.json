@@ -1,8 +1,9 @@
 {
     "name": "toylang",
     "displayName": "Toylang",
+    "main": "test_hover/extension.js",
     "description": "",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "icon": "icon.png",
     "repository": {
         "type": "git",

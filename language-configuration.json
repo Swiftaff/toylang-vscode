@@ -4,9 +4,18 @@
         //"blockComment": [ "#(", ")#" ]
     },
     "brackets": [
-        ["(", ")"],
-        ["{", "}"],
-        ["[", "]"]
+        [
+            "(",
+            ")"
+        ],
+        [
+            "{",
+            "}"
+        ],
+        [
+            "[",
+            "]"
+        ]
     ],
     "autoClosingPairs": [
         //{ "open": "\\", "close": "\\" },
@@ -30,5 +39,6 @@
                 "fontStyle": "italic"
             }
         }
-    ]
+    ],
+    "wordPattern": "=(?= )|set_list_item|\\|([ \\w+ ])|=>|i64|index1|list|test",
 }
