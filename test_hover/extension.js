@@ -8,17 +8,29 @@ let activeEditor;
 // create a decorator type that we use to decorate tokens
 const tokenDecorationType = vscode.window.createTextEditorDecorationType({
     borderWidth: "1px",
-    borderStyle: "solid",
+    borderStyle: "dotted",
     borderRadius: "2px",
-    //overviewRulerColor: "blue",
-    //overviewRulerLane: vscode.OverviewRulerLane.Left,
     light: {
         // this color will be used in light color themes
         borderColor: "darkblue",
     },
     dark: {
         // this color will be used in dark color themes
-        borderColor: "grey",
+        borderColor: "#444",
+    },
+});
+
+const tokenDecorationHighlightType = vscode.window.createTextEditorDecorationType({
+    borderWidth: "2px",
+    borderStyle: "solid",
+    borderRadius: "2px",
+    light: {
+        // this color will be used in light color themes
+        borderColor: "blue",
+    },
+    dark: {
+        // this color will be used in dark color themes
+        borderColor: "#999",
     },
 });
 
@@ -29,15 +41,24 @@ function activate(context) {
 
     let disposable1 = vscode.window.onDidChangeActiveTextEditor((editor) => {
         activeEditor = editor;
+
         triggerUpdateDecorations("tab switched");
     });
 
-    let disposable2 = vscode.workspace.onDidChangeTextDocument((event) =>
-        triggerUpdateDecorations("doc changed", true)
-    );
+    let disposable2 = vscode.workspace.onDidChangeTextDocument((event) => {
+        triggerUpdateDecorations("doc changed", true);
+    });
+
+    let disposable3 = vscode.languages.registerHoverProvider("toylang", {
+        provideHover(document, position, token) {
+            //console.log(position);
+            triggerUpdateDecorations("hovered");
+        },
+    });
 
     context.subscriptions.push(disposable1);
     context.subscriptions.push(disposable2);
+    context.subscriptions.push(disposable3);
 }
 
 function triggerUpdateDecorations(text, throttle = false) {
@@ -46,42 +67,56 @@ function triggerUpdateDecorations(text, throttle = false) {
         clearTimeout(timeout);
         timeout = undefined;
     }
-
     if (throttle) timeout = setTimeout(updateDecorations, 500);
     else updateDecorations();
 }
 
 async function updateDecorations() {
     if (activeEditor && activeEditor.document.languageId === "toylang") {
+        const cursor = activeEditor.selections[0].start;
+        //console.log(cursor);
         const text = activeEditor.document.getText();
         const output = await runBinary(text);
         try {
             const jsonOutput = JSON.parse(output);
             const token_decorations = [];
-            console.log("updateDecorations:", jsonOutput);
+            const token_decoration_highlights = [];
 
             if (Array.isArray(jsonOutput)) {
-                for (line_num in jsonOutput) {
-                    const line = jsonOutput[line_num];
+                jsonOutput.forEach((line, line_num) => {
                     if (Array.isArray(line)) {
-                        for (token of line) {
-                            if (Array.isArray(token) && token.length === 4 && line_num !== 0) {
+                        line.forEach((token, _token_num) => {
+                            if (Array.isArray(token) && token.length === 4) {
                                 const token_text = token[0];
                                 const startPos = new vscode.Position(line_num, token[2]);
                                 const endPos = new vscode.Position(line_num, token[3] + 1);
-                                console.log(token_text, line_num, startPos, endPos);
                                 const decoration = {
                                     range: new vscode.Range(startPos, endPos),
                                     hoverMessage: token_text,
                                 };
-                                token_decorations.push(decoration);
+                                const cursor_is_on_same_line = cursor.line === line_num;
+                                const cursor_is_after_token_start = cursor.e >= token[2];
+                                const cursor_is_before_token_end = cursor.e <= token[3] + 1;
+                                /*console.log(
+                                    cursor_is_on_same_line,
+                                    cursor_is_after_token_start,
+                                    cursor_is_before_token_end
+                                );*/
+                                const cursor_is_in_this_token =
+                                    cursor_is_on_same_line && cursor_is_after_token_start && cursor_is_before_token_end;
+                                if (cursor_is_in_this_token) {
+                                    //console.log(token, cursor, token[2], token[3] + 1);
+                                    token_decoration_highlights.push(decoration);
+                                } else {
+                                    token_decorations.push(decoration);
+                                }
                             }
-                        }
+                        });
                     }
-                }
+                });
             }
             activeEditor.setDecorations(tokenDecorationType, token_decorations);
-            //console.log(activeEditor);
+            activeEditor.setDecorations(tokenDecorationHighlightType, token_decoration_highlights);
         } catch (err) {
             console.log(`updateDecorations parse error: ${err}`);
         }
