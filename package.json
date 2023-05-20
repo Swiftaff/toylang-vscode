@@ -1,6 +1,6 @@
 {
-    "name": "toylang",
-    "displayName": "Toylang",
+    "name": "toylang_vscode",
+    "displayName": "Toylang VS Code extension",
     "main": "test_hover/extension.js",
     "description": "",
     "version": "0.1.2",

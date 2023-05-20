@@ -4,6 +4,7 @@ const exec = util.promisify(require("child_process").exec);
 
 let timeout;
 let activeEditor;
+let diagnosticCollection;
 
 // create a decorator type that we use to decorate tokens
 const tokenDecorationType = vscode.window.createTextEditorDecorationType({
@@ -39,26 +40,28 @@ function activate(context) {
     activeEditor = vscode.window.activeTextEditor;
     if (activeEditor) triggerUpdateDecorations("extension activated");
 
-    let disposable1 = vscode.window.onDidChangeActiveTextEditor((editor) => {
+    let disposable_for_tab_switch = vscode.window.onDidChangeActiveTextEditor((editor) => {
         activeEditor = editor;
-
         triggerUpdateDecorations("tab switched");
     });
 
-    let disposable2 = vscode.workspace.onDidChangeTextDocument((event) => {
+    let disposable_for_doc_edited = vscode.workspace.onDidChangeTextDocument((event) => {
         triggerUpdateDecorations("doc changed", true);
     });
 
-    let disposable3 = vscode.languages.registerHoverProvider("toylang", {
+    let disposable_for_hover = vscode.languages.registerHoverProvider("toylang", {
         provideHover(document, position, token) {
             //console.log(position);
             triggerUpdateDecorations("hovered");
         },
     });
 
-    context.subscriptions.push(disposable1);
-    context.subscriptions.push(disposable2);
-    context.subscriptions.push(disposable3);
+    diagnosticCollection = vscode.languages.createDiagnosticCollection("toylang_vscode");
+
+    context.subscriptions.push(disposable_for_tab_switch);
+    context.subscriptions.push(disposable_for_doc_edited);
+    context.subscriptions.push(disposable_for_hover);
+    context.subscriptions.push(diagnosticCollection);
 }
 
 function triggerUpdateDecorations(text, throttle = false) {
@@ -72,15 +75,18 @@ function triggerUpdateDecorations(text, throttle = false) {
 }
 
 async function updateDecorations() {
-    if (activeEditor && activeEditor.document.languageId === "toylang") {
+    const document = activeEditor.document;
+    if (activeEditor && document.languageId === "toylang") {
         const cursor = activeEditor.selections[0].start;
         //console.log(cursor);
-        const text = activeEditor.document.getText();
+        const text = document.getText();
         const output = await runBinary(text);
         try {
             const jsonOutput = JSON.parse(output);
             const token_decorations = [];
             const token_decoration_highlights = [];
+
+            diagnosticCollection.delete(document.uri);
 
             if (Array.isArray(jsonOutput)) {
                 jsonOutput.forEach((line, line_num) => {
@@ -114,6 +120,46 @@ async function updateDecorations() {
                         });
                     }
                 });
+            } else {
+                // is it an error message?
+                if (jsonOutput.errors && Array.isArray(jsonOutput.errors)) {
+                    console.log("error", jsonOutput.errors);
+                    const items = [];
+                    jsonOutput.errors.forEach((error, error_index) => {
+                        //console.log(error_index);
+                        if (Array.isArray(error) && error.length == 2) {
+                            const error_text = error[0];
+                            const error_token = error[1];
+                            if (
+                                Array.isArray(error_token) &&
+                                error_token.length == 4 &&
+                                typeof error_token[0] == "string" &&
+                                typeof error_token[1] == "number" &&
+                                typeof error_token[2] == "number" &&
+                                typeof error_token[3] == "number"
+                            ) {
+                                //console.log(error_token);
+                                const diagnosticRange = new vscode.Range(
+                                    new vscode.Position(error_token[1], error_token[2]), // Start position
+                                    new vscode.Position(error_token[1], error_token[3] + 1) // End position
+                                );
+                                const diagnosticItem = new vscode.Diagnostic(
+                                    diagnosticRange, // The range of the error
+                                    "Toylang Error", // The error message
+                                    vscode.DiagnosticSeverity.Error // The severity of the error
+                                );
+                                diagnosticItem.relatedInformation = [
+                                    new vscode.DiagnosticRelatedInformation(
+                                        new vscode.Location(document.uri, diagnosticRange),
+                                        error_text
+                                    ),
+                                ];
+                                items.push(diagnosticItem);
+                            }
+                        }
+                    });
+                    diagnosticCollection.set(document.uri, items);
+                }
             }
             activeEditor.setDecorations(tokenDecorationType, token_decorations);
             activeEditor.setDecorations(tokenDecorationHighlightType, token_decoration_highlights);
@@ -129,7 +175,7 @@ async function runBinary(code) {
     const { stdout, stderr } = await exec(command);
     if (stderr) {
         console.error(`runBinary Error output: ${stderr}`);
-        return "[]";
+        return stderr;
     }
     return stdout;
 }
