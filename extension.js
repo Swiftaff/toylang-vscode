@@ -1,60 +1,44 @@
 const vscode = require("vscode");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
-const path = require("path");
+const fetch = require("node-fetch");
 
 let timeout;
 let activeEditor;
 let diagnosticCollection;
 
-// create a decorator type that we use to decorate tokens
-const tokenDecorationType = vscode.window.createTextEditorDecorationType({
-    borderWidth: "1px",
-    borderStyle: "dotted",
-    borderRadius: "2px",
-    light: {
-        // this color will be used in light color themes
-        borderColor: "darkblue",
-    },
-    dark: {
-        // this color will be used in dark color themes
-        borderColor: "#444",
-    },
-});
-
-const tokenDecorationHighlightType = vscode.window.createTextEditorDecorationType({
-    borderWidth: "2px",
-    borderStyle: "solid",
-    borderRadius: "2px",
-    light: {
-        // this color will be used in light color themes
-        borderColor: "blue",
-    },
-    dark: {
-        // this color will be used in dark color themes
-        borderColor: "#999",
-    },
-});
-
 // This method is called when your extension is activated
-function activate(context) {
-    activeEditor = vscode.window.activeTextEditor;
-    if (activeEditor) triggerUpdateDecorations("extension activated");
+async function activate(context) {
+    console.log("Toylang VS Code Extension: starting server on http://localhost:12345");
+    try {
+        const response = await fetch("http://localhost:12345/test");
+        const body = await response.body();
+        if (body) {
+            server_is_started = true;
+        }
+    } catch (e) {
+        startServer();
+    }
 
-    let disposable_for_tab_switch = vscode.window.onDidChangeActiveTextEditor((editor) => {
-        activeEditor = editor;
-        triggerUpdateDecorations("tab switched", true);
-    });
+    setTimeout(() => {
+        activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) triggerUpdateDecorations("extension activated");
 
-    let disposable_for_doc_edited = vscode.workspace.onDidSaveTextDocument((event) => {
-        triggerUpdateDecorations("doc changed", true);
-    });
+        let disposable_for_tab_switch = vscode.window.onDidChangeActiveTextEditor((editor) => {
+            activeEditor = editor;
+            triggerUpdateDecorations("tab switched", true);
+        });
 
-    diagnosticCollection = vscode.languages.createDiagnosticCollection("toylang_vscode");
+        let disposable_for_doc_edited = vscode.workspace.onDidSaveTextDocument((event) => {
+            triggerUpdateDecorations("doc changed", true);
+        });
 
-    context.subscriptions.push(disposable_for_tab_switch);
-    context.subscriptions.push(disposable_for_doc_edited);
-    context.subscriptions.push(diagnosticCollection);
+        diagnosticCollection = vscode.languages.createDiagnosticCollection("toylang_vscode");
+
+        context.subscriptions.push(disposable_for_tab_switch);
+        context.subscriptions.push(disposable_for_doc_edited);
+        context.subscriptions.push(diagnosticCollection);
+    }, 5000);
 }
 
 function triggerUpdateDecorations(text, throttle = false) {
@@ -70,9 +54,10 @@ async function updateDecorations() {
     const document = activeEditor.document;
     if (activeEditor && document.languageId === "toylang") {
         const uri = document.uri.fsPath;
-        const output = await runBinary(uri);
         try {
-            const jsonOutput = JSON.parse(output);
+            const response = await fetch("http://localhost:12345/parse?filepath=" + uri);
+            console.log(response);
+            const jsonOutput = await response.json();
 
             diagnosticCollection.delete(document.uri);
 
@@ -96,7 +81,7 @@ async function updateDecorations() {
                             );
                             const diagnosticItem = new vscode.Diagnostic(
                                 diagnosticRange, // The range of the error
-                                "Toylang Error", // The error message
+                                error_text, // The error message
                                 vscode.DiagnosticSeverity.Error // The severity of the error
                             );
                             diagnosticItem.relatedInformation = [
@@ -117,8 +102,8 @@ async function updateDecorations() {
     }
 }
 
-async function runBinary(uri) {
-    const command = `toylang.exe -n -t -i "${uri}"`;
+async function startServer() {
+    const command = "toylang.exe -s -i none";
     const { stdout, stderr } = await exec(command);
     if (stderr) {
         return stderr;
@@ -126,7 +111,23 @@ async function runBinary(uri) {
     return stdout;
 }
 
+async function kill_toylang() {
+    const appName = "toylang.exe";
+    await exec(`taskkill /im ${appName} /t /F`, (err, stdout, stderr) => {
+        if (err) {
+            return err;
+        }
+        if (stderr) {
+            return stderr;
+        }
+        return stdout;
+    });
+}
+
 // this method is called when your extension is deactivated
-function deactivate() {}
+async function deactivate() {
+    // TODO kill toylang server on deactivate
+    await kill_toylang();
+}
 
 module.exports = { activate, deactivate };
