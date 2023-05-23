@@ -1,5 +1,5 @@
 {
-    "name": "toylang_vscode",
+    "name": "toylang",
     "displayName": "Toylang VS Code extension",
     "main": "extension.js",
     "description": "",
@@ -40,6 +40,9 @@
             }
         ]
     },
+    "activationEvents": [
+        "onLanguage:toylang"
+    ],
     "dependencies": {
         "node-fetch": "^2.6.11"
     }
